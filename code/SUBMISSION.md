@@ -9,7 +9,7 @@
 - Dependencies: Python 3.12.14 and `requirements.txt` (NumPy 2.5.3). No extra weights, network access or API calls.
 - Training: supplied train inputs and train references only; deterministic full-batch Adam, no random seed for the final fit.
 - Official score JSON: `results/role_aware_process/validation-score.json` and `results/role_aware_process/test-score.json`.
-- Report: `reports/final_report.pdf` (3 pages), editable pdflatex source `reports/final_report.tex`; method details: `reports/role_aware_process/report.md`; experiment log: `EXPERIMENTS.md`.
+- Report: `final_report.pdf` (3 pages), editable pdflatex source `reports/final_report.tex`; experiment log: `EXPERIMENTS.md`. Per-method working notes are kept locally and excluded from Git.
 
 Run from `code/` after installing Miniconda:
 
@@ -55,4 +55,4 @@ The test bank was repeatedly evaluated during development. This method was devel
 
 AI assistance: Codex was used substantially for method design discussion, Python implementation, experiment automation, analysis, packaging and documentation. The student should review and understand all code and claims before submission. Reused material: supplied dataset, fixed embeddings, parser and evaluator; no extra pretrained model or external training data. The project retains the supplied `data/LICENSE.txt` and `data/NOTICE.txt`.
 
-Before submission, publish the exact version of this repository and confirm that all new files (including `methods/`, training scripts, reports, `results/`, and `checkpoints/`) are committed. The current `runs/` directory is Git-ignored. Include the commit SHA and public code/checkpoint URLs in the MP2 website form. Then click **Submit on GitHub** and actually create the prepared issue before 2026-10-31 23:59 UTC+8. Use the same account and student ID for updates. The report must be at most 10 pages in its submitted rendering. Later peer review requires running the official scorer on a peer's submitted code and reporting the reproduced score.
+Before submission, publish the exact version of this repository and confirm that the final report, `methods/`, training scripts, `results/`, and `checkpoints/` are committed. The current `runs/` directory is Git-ignored. Include the commit SHA and public code/checkpoint URLs in the MP2 website form. Then click **Submit on GitHub** and actually create the prepared issue before 2026-10-31 23:59 UTC+8. Use the same account and student ID for updates. The report must be at most 10 pages in its submitted rendering. Later peer review requires running the official scorer on a peer's submitted code and reporting the reproduced score.

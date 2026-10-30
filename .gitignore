@@ -3,6 +3,10 @@ __pycache__/
 .venv/
 venv/
 runs/
+# Local experiment notes and method checkpoints; only the frozen submission asset is tracked.
+code/reports/*/report.md
+code/reports/final_report.md
+code/reports/*.pdf
 .DS_Store
 Thumbs.db
 tmp/

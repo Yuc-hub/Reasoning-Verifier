@@ -6,9 +6,9 @@ under `runs/`. After comparing methods on validation, copy or import the frozen
 winner from `submission.py` and record its matching checkpoint. Do not use test
 references to select a method.
 
-Each method also has a `reports/<method>/report.md` documenting implementation,
-parameters, commands, resource records and results. Add or update that report
-whenever a method changes.
+Local working notes remain in `reports/<method>/report.md` and are ignored by
+Git. The public submission includes this experiment log, the final PDF report,
+source code, checkpoint and official score JSON.
 For each subsequent method change, run both the official validation and test
 prediction/scoring commands in the `mp1` environment and record both results.
 Because test results have already been viewed during development, label new

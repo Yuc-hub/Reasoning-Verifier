@@ -42,7 +42,7 @@ The combined reasoning model adds four feature families to the group-choice base
 The selected model appends eight target/source features to this 1,082-dimensional process representation, making 1,090 features. It extracts the last question phrase beginning with a cue such as ``how many'' or ``what is'' and compares it with text near the candidate's final-answer marker. Features measure target keyword recall and overlap, target-role mentions, two narrow role conflicts, use of question percentages and currency values in verified equations, missing-source fraction, and target-unit mention. These are lexical and numeric proxies, not a proof of semantic correctness. Inference returns the highest of four linear scores; ties go to the lowest index. It uses only the passed bank, supplied embeddings and its checkpoint, never reference answers or ID-based lookup.
 
 \section{Experimental results}
-All rows use the same official scorer. The later test results are marked exploratory: testing earlier methods preceded development of the later feature sets. The table highlights representative stages rather than every experiment; the repository contains method-specific reports and the full experiment log.
+All rows use the same official scorer. The later test results are marked exploratory: testing earlier methods preceded development of the later feature sets. The table highlights representative stages rather than every experiment; the repository contains a full experiment log, while method-specific working notes remain local.
 
 \begin{table}[h]
 \centering\small

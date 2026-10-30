@@ -4,9 +4,9 @@ This repository contains an offline reranker for four candidate reasoning traces
 
 **Official result:** validation 743/798 (93.10776942355889%); exploratory test 394/467 (84.36830835117773%). The test bank was viewed during later method development, so this result is not an untouched holdout or a validation-only method selection. The limitation is disclosed in the report.
 
-- [Experimental report (PDF)](code/reports/final_report.pdf) and [pdflatex source](code/reports/final_report.tex)
+- [Experimental report (PDF)](code/final_report.pdf) and [pdflatex source](code/reports/final_report.tex)
 - [Reproduction and submission commands](code/SUBMISSION.md)
-- [Full experiment log](code/EXPERIMENTS.md) and [per-method reports](code/reports/)
+- [Full experiment log](code/EXPERIMENTS.md); local per-method notes are excluded from Git
 - [Frozen entry point](code/submission.py), [matching checkpoint](code/checkpoints/role_aware_process/model.npz), and [official score JSON](code/results/role_aware_process/test-score.json)
 
 From `code/`, install Python 3.12 with `numpy==2.5.3`, then run:
