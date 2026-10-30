@@ -9,7 +9,7 @@
 - Dependencies: Python 3.12.14 and `requirements.txt` (NumPy 2.5.3). No extra weights, network access or API calls.
 - Training: supplied train inputs and train references only; deterministic full-batch Adam, no random seed for the final fit.
 - Official score JSON: `results/role_aware_process/validation-score.json` and `results/role_aware_process/test-score.json`.
-- Report: `final_report.pdf` (3 pages), editable pdflatex source `reports/final_report.tex`; experiment log: `EXPERIMENTS.md`. Per-method working notes are kept locally and excluded from Git.
+- Report: `final_report.pdf` (5 pages), editable pdflatex source `reports/final_report.tex`; experiment log: `EXPERIMENTS.md`. Per-method working notes are kept locally and excluded from Git.
 
 Run from `code/` after installing Miniconda:
 
@@ -42,6 +42,14 @@ done
 ```
 
 Expected official results: validation 743/798 = 93.10776942355889%; test 394/467 = **84.36830835117773%**. Submit the latter `accuracy` value, not the fraction or rounded 84.37.
+
+The report's validation-only uncertainty and answer-disagreement analysis is
+reproduced with `conda run -n mp1 python analyze_validation_diagnostics.py`.
+Its local fresh-process timing comparison is reproduced with
+`conda run -n mp1 python measure_report_runtime.py` after regenerating the
+intermediate method checkpoints. The frozen checkpoint above is sufficient
+for official scoring. Aggregate outputs are checked in as
+`results/validation-diagnostics.json` and `results/runtime-comparison.json`.
 
 The direct `submission.py` entry point also works without `--checkpoint`, using its bundled checkpoint. The explicit path above pins the asset for review. For a new audit bank, pass `--split audit --data-dir PATH`; inference reads only the supplied bank and embeddings, and does not open reference answers.
 

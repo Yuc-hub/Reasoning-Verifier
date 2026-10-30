@@ -1,0 +1,70 @@
+{
+  "machine": "local Apple Silicon arm64",
+  "protocol": "one fresh prediction process plus one independent scoring process per method; four thread environment variables; Python executable from mp1",
+  "runs": [
+    {
+      "method": "answer_agreement",
+      "prediction_wall_seconds": 0.1548563750111498,
+      "scoring_wall_seconds": 0.06762799998978153,
+      "total_wall_seconds": 0.22248437500093132,
+      "correct": 323,
+      "n": 467
+    },
+    {
+      "method": "text_features",
+      "prediction_wall_seconds": 0.18706424999982119,
+      "scoring_wall_seconds": 0.06991270795697346,
+      "total_wall_seconds": 0.25697695795679465,
+      "correct": 350,
+      "n": 467
+    },
+    {
+      "method": "embedding_linear",
+      "prediction_wall_seconds": 0.09724829095648602,
+      "scoring_wall_seconds": 0.06826583400834352,
+      "total_wall_seconds": 0.16551412496482953,
+      "correct": 360,
+      "n": 467
+    },
+    {
+      "method": "pairwise_comparison",
+      "prediction_wall_seconds": 0.1998442499898374,
+      "scoring_wall_seconds": 0.0672828329843469,
+      "total_wall_seconds": 0.2671270829741843,
+      "correct": 378,
+      "n": 467
+    },
+    {
+      "method": "group_choice",
+      "prediction_wall_seconds": 0.20423033297993243,
+      "scoring_wall_seconds": 0.06715933402301744,
+      "total_wall_seconds": 0.27138966700294986,
+      "correct": 385,
+      "n": 467
+    },
+    {
+      "method": "combined_reasoning",
+      "prediction_wall_seconds": 0.8063874169602059,
+      "scoring_wall_seconds": 0.07039187499321997,
+      "total_wall_seconds": 0.8767792919534259,
+      "correct": 389,
+      "n": 467
+    },
+    {
+      "method": "process_verifier",
+      "prediction_wall_seconds": 0.9641632499988191,
+      "scoring_wall_seconds": 0.06827500002691522,
+      "total_wall_seconds": 1.0324382500257343,
+      "correct": 391,
+      "n": 467
+    },
+    {
+      "method": "role_aware_process",
+      "prediction_wall_seconds": 1.178189416998066,
+      "scoring_wall_seconds": 0.06815720797749236,
+      "total_wall_seconds": 1.2463466249755584,
+      "correct": 394,
+      "n": 467
+    }
+  ]
+}

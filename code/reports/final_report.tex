@@ -1,81 +1,143 @@
 \documentclass[10pt,a4paper]{article}
-\usepackage[margin=0.78in]{geometry}
+\usepackage[margin=0.75in]{geometry}
 \usepackage[T1]{fontenc}
-\usepackage{lmodern}
-\usepackage{microtype}
-\usepackage{amsmath,amssymb,booktabs,array,graphicx,xcolor,hyperref}
+\usepackage{lmodern,microtype}
+\usepackage{amsmath,amssymb,booktabs,array,graphicx,xcolor,hyperref,multicol}
 \usepackage{enumitem}
 \hypersetup{colorlinks=true,linkcolor=blue!50!black,urlcolor=blue!50!black}
 \setlist{nosep,leftmargin=*}
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{5pt}
-\newcommand{\code}[1]{\texttt{#1}}
 \newcommand{\pct}{\%}
-\title{Selecting Reliable LLM Reasoning with Lightweight Process and Target Verification}
-\author{DASE7506 MP2 Experimental Report}
-\date{Fall 2026}
+\newcommand{\code}[1]{\texttt{#1}}
+\title{A JEV-Inspired Joint-Evidence Selector for Reliable Reasoning Traces\\\large DASE7506 MP2 Experimental Report}
+\author{Coursework project report}
+\date{31 October 2026}
 \begin{document}
 \maketitle
-\vspace{-1.0em}
+\vspace{-1.2em}
 \begin{abstract}
-We study selection among four supplied reasoning traces for each grade-school math problem. Starting from answer agreement, text statistics and fixed embeddings, we train a four-way group-ranking model and add explicit checks of arithmetic steps, use of question conditions, answer-process linkage, and alignment with the quantity requested. The final role-aware process model obtains 743/798 (93.11\pct) on validation and 394/467 (84.37\pct) on the supplied test bank. Its eight final target/source features improve validation by one question over the preceding process model, but a five-fold train-only diagnostic decreases by one hard question. Because test outcomes were visible during later development and model selection, the test comparison is exploratory and is not an untouched estimate. We report that limitation explicitly alongside the reproducible checkpoint and resource costs.
+\textbf{Main contribution.} Inspired by the JEV idea of making one decision from several pieces of evidence, I designed a lightweight selector that fuses final-answer agreement, text cues, supplied embeddings, comparisons among four candidates, and checkable evidence from their reasoning processes. Its final version adds target-role and quantity-source alignment, so a mathematically tidy trace is not automatically preferred when it answers the wrong quantity. A multi-correct group-softmax model learns how to combine the evidence and makes a single four-way choice without a reference answer at inference. I tested voting, pointwise, pairwise, groupwise, fusion, process, and postprocessing variants. The frozen selector obtains 743/798 (93.11\pct) on validation and 394/467 (84.37\pct) on the supplied test bank. The last eight target/source cues give a small validation gain but a one-question decline in a train-only out-of-fold diagnostic. Later development followed earlier test evaluations; the test comparison is exploratory and is not an untouched model-selection estimate.
 \end{abstract}
 
-\section{Task, question, and protocol}
-For each question $q$, the supplied bank contains four candidate solution texts $t_i$ and fixed 1,024-dimensional embeddings $e_i$. The selector returns one index $\hat\imath\in\{0,1,2,3\}$. The official scorer checks only whether the selected candidate's parsed final numeric answer equals the reference; it does not grade every intermediate step. More than one candidate may be correct. The supplied splits contain 4,755 training, 798 validation, and 467 test questions, with no overlapping questions.
+\section{Research question and assignment setting}
+A question has four candidate reasoning texts $t_i$ and supplied fixed embeddings $e_i\in\mathbb R^{1024}$. The task is to output one candidate index $\hat\imath\in\{0,1,2,3\}$. The official metric is whether the selected candidate's \emph{final parsed numeric answer} equals the reference; it does not require every intermediate statement to be sound. Multiple candidates can be correct. The provided splits contain 4,755 training, 798 validation, and 467 test questions. Test groups have at least two different valid parsed answers, whereas many validation groups are easier; raw accuracy across splits is therefore not a like-for-like difficulty comparison.
 
-Our question is whether inspecting the calculation process and the target quantity helps beyond final-answer voting or whole-trace representations. The working hypothesis is that a candidate can perform locally valid arithmetic while answering the wrong quantity, such as original price instead of amount paid. We fit learned parameters only from the supplied training inputs and training references. Validation scores are development evidence. Test scores from later experiments are descriptive because earlier test results were already visible.
+The question I chose is: \emph{does combining evidence from the question, competing answers, supplied representations, and explicit reasoning steps yield better decisions than judging a trace by one signal alone?} I expected a learned joint selector to outperform answer voting, and expected process and target-role features to help on cases where candidates perform plausible arithmetic but misuse a condition or answer a different quantity. The key design is a JEV-inspired \emph{one-shot joint-evidence decision}: construct a structured evidence vector for each candidate while seeing all four candidates, then choose once. This is a task-specific inspiration, not a claim to reproduce an external JEV architecture or its original training procedure.
 
-\section{Method development}
-\subsection{Baselines and learned ranking}
-Answer agreement clusters candidates by the official final-answer parser and selects a member of the largest cluster. The text model fits regularized logistic regression to 20 hand-built features including answer agreement, length and question overlap. The embedding model fits a ridge-regression score to standardized supplied embeddings. Pairwise comparison learns from correct--incorrect candidate pairs within a question. These provide independent checks on what information is useful: voting uses only answer equivalence, text features use surface and question cues, and embeddings use a frozen semantic representation.
+The development sequence below is itself part of the contribution. I kept failed or mixed-result variants, because they show which signals and computational costs did not reliably help. Training labels come from the supplied training references only. Validation was used for development. Earlier test outcomes were viewed before later variants were proposed, so all later test comparisons are explicitly exploratory; choosing the final variant based partly on test is a protocol limitation.
 
-The later group-choice models score all four candidates together. Let $x_{gi}$ be the feature vector for candidate $i$ in group $g$, $s_{gi}=w^\top (x_{gi}-\mu)/\sigma$, and $C_g$ the set of correct candidates. We minimize the multi-correct group-softmax loss
+\section{JEV-inspired selector: evidence and decision rule}
+\subsection{From independent scores to a joint four-candidate decision}
+The earliest answer-agreement baseline gives each candidate its final-answer cluster size. A text logistic model uses 20 candidate/question features, including answer agreement, numbers, length, structure and lexical overlap. A linear embedding model scores only the fixed 1,024-dimensional representation. These expose complementary but limited signals: a common answer can be systematically wrong; an embedding can encode fluent reasoning without correctness; text markers can be superficial.
+
+The selector's base vector concatenates text/answer evidence and the supplied embedding, then adds features that compare a candidate with the other three. Let $x_{gi}$ denote candidate $i$'s vector in group $g$. The global model assigns
 \begin{equation}
-\mathcal L(w)=\sum_g\left[\log\sum_{j=1}^{4}e^{s_{gj}}-\log\sum_{i\in C_g}e^{s_{gi}}\right]+\frac{\lambda}{2}\lVert w\rVert_2^2.
+ s_{gi}=w^\top\frac{x_{gi}-\mu}{\sigma},\qquad
+ \hat\imath_g=\underset{i\in\{1,2,3,4\}}{\arg\max}\;s_{gi}.
 \end{equation}
-This objective gives credit when probability mass goes to any correct candidate, matching the task better than a separate binary decision on each trace. We use $\lambda=25$, full-batch Adam for 300 epochs, learning rate 0.02, $\beta_1=0.9$, $\beta_2=0.999$, and $\epsilon=10^{-8}$. Means and scales are learned from training inputs only; near-zero scales become one. The final fit starts at zero with no shuffling, so it has no random seed.
+The scale is fitted on training candidates; near-zero standard deviations are set to one. Ties select the first candidate. The \emph{multi-correct} objective places probability mass on any correct candidate, matching the scoring rule:
+\begin{equation}
+ \mathcal L(w)=\sum_g\left[\log\sum_{j=1}^{4}e^{s_{gj}}
+ -\log\sum_{i\in C_g}e^{s_{gi}}\right]
+ +\frac{25}{2}\lVert w\rVert_2^2,
+\end{equation}
+where $C_g$ is the set of correct candidates in training group $g$. I used deterministic full-batch Adam for 300 epochs, learning rate 0.02, $\beta_1=0.9$, $\beta_2=0.999$, $\epsilon=10^{-8}$, zero initialization and no shuffling. The final fit has no random seed. The scorer is linear so the contribution lies in constructing comparable evidence and fitting its combination, rather than in a large verifier model.
 
-\subsection{Reasoning and process features}
-The combined reasoning model adds four feature families to the group-choice base: arithmetic consistency of explicit equations; whether question numbers and conditions are mentioned or visibly used; where candidates first diverge in numerical/equation sequences; and whether the final answer is connected to late calculation results. The process-chain extension parses explicit equality chains with a restricted arithmetic evaluator, checks numerical equality to tolerance $10^{-3}$, and links a verified result to a later step when it appears as an operand. Nine features summarize valid/invalid steps, reuse, graph depth, source-number coverage and final-answer linkage. The parser never executes candidate text as program code.
+\subsection{Evidence from reasoning, conditions, and target quantity}
+The experiments progressively add four families to the base group-choice representation. \textbf{Arithmetic consistency} extracts explicit elementary equalities and checks their numerical agreement. \textbf{Question-condition coverage} distinguishes a question number merely appearing in a trace from appearing in a recognized calculation, with unit/time/constraint cues. \textbf{Candidate divergence localization} compares early number and equation-result sequences across the four traces, seeking the first point of disagreement. \textbf{Answer-process linkage} asks whether verified intermediate results feed later steps and the final answer. These four families form a 1,073-feature combined model.
 
-The selected model appends eight target/source features to this 1,082-dimensional process representation, making 1,090 features. It extracts the last question phrase beginning with a cue such as ``how many'' or ``what is'' and compares it with text near the candidate's final-answer marker. Features measure target keyword recall and overlap, target-role mentions, two narrow role conflicts, use of question percentages and currency values in verified equations, missing-source fraction, and target-unit mention. These are lexical and numeric proxies, not a proof of semantic correctness. Inference returns the highest of four linear scores; ties go to the lowest index. It uses only the passed bank, supplied embeddings and its checkpoint, never reference answers or ID-based lookup.
+A further nine \textbf{process-chain} features parse explicit equality chains using a restricted arithmetic expression evaluator. Valid local equations are linked when a result appears as a later operand. The features summarize verified and invalid step counts, reuse, graph depth, question-number coverage and whether a verified result reaches the final answer. The evaluator supports numeric constants, arithmetic, parentheses, simple fractions and percentages, and rejects names and function calls; candidate text is never executed as code. Numerical comparisons use tolerance $10^{-3}$. This gives 1,082 features.
 
-\section{Experimental results}
-All rows use the same official scorer. The later test results are marked exploratory: testing earlier methods preceded development of the later feature sets. The table highlights representative stages rather than every experiment; the repository contains a full experiment log, while method-specific working notes remain local.
+My final extension adds eight \textbf{target/source alignment} cues, reaching 1,090 features. It locates the question's final target phrase (for example, ``how much''), compares its keywords and role terms with text near the candidate conclusion, flags two narrow target-role conflicts, checks whether stated percentages or currency amounts appear as literals in verified equations, and checks target-unit mention. This directly addresses a failure observed in training-only error inspection: internally valid arithmetic may compute original price when the question asks for amount paid. These are intentionally soft lexical and numeric proxies, not semantic proofs; the learned selector decides how much to trust them.
 
-\begin{table}[h]
+\section{Experimental progression and ablations}
+The same official evaluator was used for every row. The table records the sequence of design decisions, including negative results. Later test columns are descriptive, not a clean basis for selecting a model. Full commands and parameters are in \code{code/EXPERIMENTS.md}, and the runnable implementation is in the repository.
+
+\begin{table}[ht]
 \centering\small
-\caption{Official selection accuracy. Test values for later methods are exploratory.}
-\begin{tabular}{@{}p{0.49\linewidth}rr@{}}
+\caption{Representative experimental sequence. Accuracy is correct groups divided by split size. Later test results are exploratory.}
+\begin{tabular}{@{}p{0.48\linewidth}rr@{}}
 \toprule
-Method & Validation / 798 & Test / 467 \\
+Method / experiment & Validation / 798 & Test / 467 \\
 \midrule
-Answer agreement & 688 (86.22\pct) & 323 (69.16\pct) \\
-Text-feature logistic regression & 719 (90.10\pct) & 350 (74.95\pct) \\
-Fixed-embedding ridge score & 712 (89.22\pct) & 360 (77.09\pct) \\
+Answer-agreement voting & 688 (86.22\pct) & 323 (69.16\pct) \\
+20 text features, logistic regression & 719 (90.10\pct) & 350 (74.95\pct) \\
+Fixed embedding, ridge score & 712 (89.22\pct) & 360 (77.09\pct) \\
 Pairwise candidate comparison & 734 (91.98\pct) & 378 (80.94\pct) \\
-Group choice & 742 (92.98\pct) & 385 (82.44\pct) \\
-Combined reasoning features & 739 (92.61\pct) & 389 (83.30\pct) \\
-Process-chain verifier & 742 (92.98\pct) & 391 (83.73\pct) \\
-\textbf{+ Target-role/source features (selected)} & \textbf{743 (93.11\pct)} & \textbf{394 (84.37\pct)} \\
+Score fusion: pairwise + embedding & 738 (92.48\pct) & 377 (80.73\pct) \\
+Bradley--Terry pairwise objective & 739 (92.61\pct) & 382 (81.80\pct) \\
+Four-way multi-correct group choice & 742 (92.98\pct) & 385 (82.44\pct) \\
++ Arithmetic consistency alone & 741 (92.86\pct) & 384 (82.23\pct) \\
++ Divergence localization alone & 745 (93.36\pct) & 385 (82.44\pct) \\
++ Question-condition coverage alone & 740 (92.73\pct) & 386 (82.66\pct) \\
+Combined four reasoning families & 739 (92.61\pct) & 389 (83.30\pct) \\
++ Calculation-chain process features & 742 (92.98\pct) & 391 (83.73\pct) \\
+\textbf{+ Target-role/source alignment (final)} & \textbf{743 (93.11\pct)} & \textbf{394 (84.37\pct)} \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The process-chain verifier is a controlled feature ablation over combined reasoning: it adds nine features with the same group-choice objective and optimizer. It gains three validation questions and two test questions. The final role/source extension adds eight features with the same training settings, gaining one validation question and three test questions over process-chain verification. On validation, 30 selected indices change; two errors become correct and one correct case becomes wrong. On test, nine indices change, with three becoming correct and none becoming wrong. These are small differences; they do not establish a robust advantage.
+\textbf{Loss and ranking ablations.} With the same 1,044 text-plus-embedding features, the original pairwise comparison obtained 734 validation correct; Bradley--Terry preference loss obtained 739; four-way group choice obtained 742. This supports using the full candidate set and a loss aligned to ``any correct answer'', although the objectives differ and the gaps are small. Pairwise comparison improved over isolated text and embedding scores, but those comparisons also change features, so they do not isolate the causal effect of pairwise training.
 
-A five-fold train-only out-of-fold (OOF) diagnostic used seed 2026 for fold assignment. On 2,114 hard training groups, the process model selected 1,731 correctly; the role/source model selected 1,730. Overall OOF counts were 4,372/4,755 and 4,371/4,755 respectively. The role features were designed after examining OOF errors, so this is diagnostic rather than an independent holdout. It provides a useful counterweight to the small positive validation and test differences.
+\textbf{Fusion and answer clustering.} A prespecified ten-point validation grid selected normalized pairwise score weight 1.0 and embedding score weight 0.25 (separate text-model weight 0). Fusion added four validation correct cases over pairwise alone, yet had one fewer test correct case. A fixed answer-cluster aggregation rule on the group-choice checkpoint raised validation from 742 to 745 and exploratory test from 385 to 387. Applied instead to the combined-reasoning checkpoint, it raised validation 739 to 744 but lowered test 389 to 384. Cluster support is useful in some settings but does not guarantee a better selector.
 
-\section{Error analysis, resources, and reproducibility}
-Process parsing recognizes explicit elementary calculations but misses implicit operations, algebraic shortcuts and many equivalent forms. A valid solution may express 25\pct as $25/100$ rather than the recognized $0.25$ factor. A candidate may mention a relevant number or unit without using it correctly. The narrow role-conflict vocabulary can also miss synonyms. Therefore the features are soft evidence learned by the ranker, not hard rejection rules. Parser coverage and individual failure modes are recorded in the corresponding method reports.
+\textbf{Process and target ablations.} Adding the nine process-chain features to combined reasoning changed 109 validation choices: seven errors became correct and four correct cases regressed, for a net gain of three. On exploratory test, 16 improved and 14 regressed, net two. Adding the final eight target/source cues to the process model changed 30 validation choices, net +1, and nine test choices, net +3. These small gains deserve caution, especially because the feature design followed earlier error inspection.
 
-The final checkpoint is an NPZ containing three float32 arrays---means, scales, and weights---of length 1,090 each: 13,080 raw array bytes and 13,830 bytes on disk, below the 16 MiB asset limit. With four thread environment variables, an external wall-clock command on local Apple Silicon arm64 measured 3.24 s for one fresh test prediction process plus independent scoring, including startup. The reference Xeon Platinum 8457C determines the course's 30 s eligibility; the local result alone cannot prove it. Python 3.12.14 and NumPy 2.5.3 were used. The exact commands, official JSON results, SHA-256 checkpoint hash, and code entry point are in \code{code/SUBMISSION.md}; no retraining is needed for scoring.
+\textbf{Hard-negative counterexample.} An auxiliary softplus loss emphasized the current highest-scoring wrong training candidate, using weight 0.5 and target margin 1.0 in addition to the group loss. On the combined model it improved validation from 739 to 745 and train-only OOF hard-group accuracy from 1,709 to 1,725 out of 2,114. Yet exploratory test fell from 389 to 384. Adding cluster postprocessing to that checkpoint gave 743 validation and 383 test. More focused training can improve the visible development split while failing to generalize.
 
-A major protocol limitation remains: previous test results were viewed before this final feature design, and the model was chosen partly because its test accuracy was highest. This conflicts with the assignment instruction to use validation, rather than test, for method selection. We disclose the chronology instead of presenting the test result as a clean holdout. A strictly compliant final choice would need independent validation-only selection or an instructor ruling. The selected model itself is frozen for reproduction.
+\section{Answers to the five investigation questions}
+\subsection{Does reading the reasoning process help?}
+The answer-only voting baseline gets 688/798 validation. Text statistics plus question and final-answer cues get 719; fixed whole-trace embeddings alone get 712. The group selector combining text and embeddings gets 742. Explicit process-chain features add three validation correct over the 739 combined model, and a train-only five-fold diagnostic improves hard-group correct from 1,709 to 1,731. Thus there is evidence that structured process signals add information beyond answer agreement and whole-trace representations. The experiment does \emph{not} prove that the model understands full mathematical reasoning: feature sets and training objectives change across some comparisons, and the local parser misses implicit steps.
 
-\section{Conclusion and disclosure}
-The experiments show substantial improvements from answer voting to learned candidate comparison and process-aware ranking on this bank. The last eight target/source cues produce only a one-question validation gain and a one-question decline in OOF hard groups, so their apparent test benefit should be treated cautiously. Future work would need stronger independent evaluation and more reliable semantic checks of quantity roles and dependency chains.
+\subsection{Why can a wrong answer look convincing? Surface-feature ablation}
+A fluent wrong trace may copy the question's numbers, display a boxed answer, or show several locally valid equations while assigning the wrong role to a value. Among 405 hard-group OOF errors from the combined model, nonexclusive heuristic flags found 174 with a simple wrong equation, 197 where a question number was mentioned but not used in a recognized calculation, 76 where the last extracted equation result differed from the final answer, and 152 where another candidate shared the wrong answer. Fifty had none of these flags. These are diagnostic counts, not causal explanations.
 
-Codex AI assistance was used substantially for design discussion, implementation, experiment automation, analysis, and report preparation. The supplied dataset, embeddings, parser and evaluator were reused. No external training data, additional pretrained weights, or inference API was used. The student should review and understand the code and claims before submission.
+I removed six explicit surface features---character, word and line lengths plus boxed, ``Final Answer'', and \code{\#\#\#\#} markers---from the 1,044-feature group-choice input and retrained with the same objective. Validation moved from 742 to 743; exploratory test moved from 385 to 383. The tiny opposite-sign differences do not show that these cues are reliably helpful. Embeddings and retained numeric/operator features may still encode surface style, so this is a limited artifact ablation rather than proof of bias-free reasoning. The target-role feature family is meant to counter a different shortcut: a trace can be arithmetically coherent yet answer the wrong requested quantity.
+
+\subsection{Should candidates be judged independently?}
+The pairwise model compares candidates within a question; the group objective further makes the four-way choice jointly. With matched 1,044 input dimensions, moving from pairwise comparison to group choice raises validation from 734 to 742. Divergence-location features added to group choice raise validation from 742 to 745, but exploratory test remains 385, so this particular feature did not yield a stable visible test improvement. Answer-cluster aggregation also helps the base group model by three validation questions without retraining. These results support comparison as useful evidence, but a parser that spots an early numerical fork cannot always tell which branch applies the question condition correctly. Condition coverage alone decreased validation from 742 to 740, another useful negative result.
+
+\subsection{Can the selector recognize its uncertainty?}
+I tested the frozen role-aware selector on validation only, using the raw top-two linear-score gap as a tentative confidence signal. On all 798 groups, accuracy by ascending gap quartile was 188/200, 187/200, 185/199 and 183/199: superficially, larger margins look \emph{worse}. This is confounded by easy groups whose four candidates share an answer. Restricting to the 355 validation groups with at least two distinct parsed answers gives 73/89 (82.0\pct), 70/89 (78.7\pct), 78/89 (87.6\pct) and 79/88 (89.8\pct). Thus the gap has some ordering value on genuinely disputed questions, but is not monotonically reliable and is not a calibrated probability.
+
+The four selectors (vote, embedding, pairwise, final) chose the same \emph{final answer} on 659 validation groups; the final selector was correct on 642 (97.4\pct). Where at least one disagreed, it was correct on 101/139 (72.7\pct). This makes answer-level disagreement a useful diagnostic for review. On 105 groups where the final answer differed from voting, the final selector was correct in 75, voting in 20, and both were wrong in the remaining 10. These numbers were computed from validation references only and were not used to tune the checkpoint. The deployed system still always selects one candidate; no abstention or calibrated confidence gate was trained.
+
+\subsection{When does more computation pay off?}
+I timed one fresh prediction process plus a separate official scoring process per method on the same complete test bank, using the same local Apple Silicon arm64 machine, the Miniconda \code{mp1} Python executable, and four-thread environment variables. The runs are single measurements, so small timing differences should not be overinterpreted; the reference Xeon determines formal eligibility. The timing script and aggregate JSON are included.
+
+\begin{table}[ht]
+\centering\small
+\caption{Local fresh-process time comparison; each total includes prediction and independent official scoring. Accuracy is descriptive, not a timing-adjusted ranking objective.}
+\begin{tabular}{@{}p{0.50\linewidth}rr@{}}
+\toprule
+Method & Test correct / 467 & Total wall time (s) \\
+\midrule
+Answer agreement & 323 & 0.222 \\
+Text features & 350 & 0.257 \\
+Embedding linear & 360 & 0.166 \\
+Pairwise comparison & 378 & 0.267 \\
+Four-way group choice & 385 & 0.271 \\
+Combined reasoning & 389 & 0.877 \\
+Process-chain verifier & 391 & 1.032 \\
+Role-aware process (final) & 394 & 1.246 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+Relative to group choice, the final process-rich model takes about 0.975 s more on the full bank and selects nine more test answers correctly. This is a small absolute cost locally, but the test gain is exploratory and may not generalize. Fusion and cluster experiments show the opposite pattern: more components or postprocessing can add work yet fail to improve the test result. A separate external shell measurement that included two \code{conda run} launches measured 3.24 s for final prediction plus scoring; that number has different launcher overhead and should not be compared directly with the table.
+
+\section{Failure analysis, limitations, and reproducibility}
+The process parser checks local explicit arithmetic, not the semantics of the word problem. It may miss prose equations, algebraic shortcuts, or equivalent percentage forms such as $25/100$ instead of $0.25$. Repeated values can create a false dependency edge. A target word or unit may appear in a conclusion without being used correctly. The final role vocabulary flags only narrow conflicts such as ``original price'' versus ``amount paid'' and ``amount used'' versus ``amount remaining''; unseen synonyms are missed. All process and target cues remain learned soft features, never hard exclusions.
+
+Five-fold train-only OOF analysis used seed 2026 for fold assignment. Combined reasoning correctly selected 1,709/2,114 hard groups, process verification 1,731/2,114, and the final role-aware version 1,730/2,114. The last step therefore \emph{decreased} this diagnostic by one even though validation increased by one and exploratory test by three. The features were designed after OOF error inspection, so the OOF comparisons are diagnostic rather than untouched holdouts. The broader search over many variants increases the risk that small improvements reflect selection noise.
+
+The frozen checkpoint stores 1,090 float32 means, scales and weights (13,080 raw array bytes; 13,830 bytes in the NPZ file), far below the 16 MiB limit. It is \code{code/checkpoints/role\_aware\_process/model.npz}, SHA-256 \code{680c173df6c42dcbb02295d24acf6b38b1b0d8e3b5003d5788bce72885d6cb4e}. Inference reads only the supplied bank, embeddings, and checkpoint, and uses no new LLM generation, API, external data or ID lookup. Python 3.12.14 and NumPy 2.5.3 were used. The official score JSON and exact commands are in \code{code/SUBMISSION.md}; the published final model reproduces 743/798 validation and 394/467 test without retraining. Local runtime does not prove the 30-second limit on the specified Xeon Platinum 8457C.
+
+\textbf{Protocol disclosure.} Earlier test results were visible before some later models were developed, and the final method was selected partly because its test score was highest. This conflicts with the assignment rule to use validation rather than test for method selection. The score is reproducible, but it must not be represented as an untouched generalization estimate or automatically assumed eligible without an instructor ruling. A stricter validation-only final choice would need to be frozen independently of test feedback.
+
+\section{Conclusion and AI/reuse statement}
+The central project contribution is the JEV-inspired, one-shot joint-evidence selector: it learns from answer, text, embedding, candidate-relation, process, and target/source signals to make a four-way choice. The series of controlled and partially controlled experiments shows that joint ranking is substantially stronger than voting on the supplied validation bank; process checks add modest further evidence; and simple confidence, clustering or hard-negative heuristics can fail or reverse across splits. The limited final-stage gains and OOF counterexample argue for restraint in claiming a robust improvement.
+
+Codex AI assistance was substantive: it helped discuss model ideas and mathematical objectives, write and revise Python feature/training/evaluation code, automate experiments and diagnostics, analyze results, and draft this report. The student directed method choices, reviewed experiment outputs, selected the reported model, and remains responsible for understanding and verifying the submitted claims. The supplied dataset, fixed embeddings, parser and independent scorer were reused with their retained license and attribution. No external training dataset, additional pretrained weights or inference API was used.
 \end{document}

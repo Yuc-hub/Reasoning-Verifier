@@ -8,7 +8,12 @@ references to select a method.
 
 Local working notes remain in `reports/<method>/report.md` and are ignored by
 Git. The public submission includes this experiment log, the final PDF report,
-source code, checkpoint and official score JSON.
+source code, checkpoint and official score JSON. The report's additional
+validation-only score-gap and answer-disagreement diagnostics are reproduced
+by `analyze_validation_diagnostics.py`; the fresh-process local timing
+comparison is reproduced by `measure_report_runtime.py`. Their aggregate
+outputs are in `results/validation-diagnostics.json` and
+`results/runtime-comparison.json`. No model was tuned in these analyses.
 For each subsequent method change, run both the official validation and test
 prediction/scoring commands in the `mp1` environment and record both results.
 Because test results have already been viewed during development, label new

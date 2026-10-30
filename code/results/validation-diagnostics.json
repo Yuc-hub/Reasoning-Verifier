@@ -1,0 +1,95 @@
+{
+  "split": "validation",
+  "n": 798,
+  "role_correct": 743,
+  "score_margin_note": "Raw linear top-two score gap; not a calibrated probability.",
+  "margin_quartiles_low_to_high": [
+    {
+      "n": 200,
+      "correct": 188,
+      "accuracy_percent": 94.0,
+      "margin_min": 0.0,
+      "margin_max": 0.2609449617886514
+    },
+    {
+      "n": 200,
+      "correct": 187,
+      "accuracy_percent": 93.5,
+      "margin_min": 0.2616466635769037,
+      "margin_max": 0.6405943449499671
+    },
+    {
+      "n": 199,
+      "correct": 185,
+      "accuracy_percent": 92.96482412060301,
+      "margin_min": 0.6415441510030266,
+      "margin_max": 1.2697804638423147
+    },
+    {
+      "n": 199,
+      "correct": 183,
+      "accuracy_percent": 91.95979899497488,
+      "margin_min": 1.277759665589201,
+      "margin_max": 7.108037765569358
+    }
+  ],
+  "hard_groups": {
+    "n": 355,
+    "correct": 300,
+    "margin_quartiles_low_to_high": [
+      {
+        "n": 89,
+        "correct": 73,
+        "accuracy_percent": 82.02247191011236,
+        "margin_min": 0.004945452384669258,
+        "margin_max": 0.3311573474460944
+      },
+      {
+        "n": 89,
+        "correct": 70,
+        "accuracy_percent": 78.65168539325843,
+        "margin_min": 0.33367520377711557,
+        "margin_max": 0.8337481932944728
+      },
+      {
+        "n": 89,
+        "correct": 78,
+        "accuracy_percent": 87.64044943820225,
+        "margin_min": 0.8370998709197623,
+        "margin_max": 1.5877833440500806
+      },
+      {
+        "n": 88,
+        "correct": 79,
+        "accuracy_percent": 89.77272727272727,
+        "margin_min": 1.6159853641372455,
+        "margin_max": 7.108037765569358
+      }
+    ]
+  },
+  "all_four_selectors_same_final_answer": {
+    "n": 659,
+    "correct": 642
+  },
+  "at_least_one_selector_different_final_answer": {
+    "n": 139,
+    "correct": 101
+  },
+  "pairwise_disagreements": {
+    "answer_agreement": {
+      "different_choices": 105,
+      "role_correct_when_different": 75,
+      "other_correct_when_different": 20
+    },
+    "embedding_linear": {
+      "different_choices": 66,
+      "role_correct_when_different": 46,
+      "other_correct_when_different": 15
+    },
+    "pairwise_comparison": {
+      "different_choices": 42,
+      "role_correct_when_different": 24,
+      "other_correct_when_different": 15
+    }
+  }
+}
